@@ -61,7 +61,7 @@ public:
       reallocate_(&m_data, m_size, m_capacity * 2);
     }
 
-    m_data[m_size++] = std::forward(t);
+    m_data[m_size++] = std::forward<T>(t);
   }
 
   uint64_t size() const {
@@ -87,7 +87,7 @@ private:
     *ptr = new T[capacity] {};
   }
 
-  void reallocate(T** ptr, uint64_t size, uint64_t capacity) {
+  void reallocate_(T** ptr, uint64_t size, uint64_t capacity) {
     assert(capacity > size);
     T* tmp = new T[capacity] {};
     for (uint64_t i = 0; i < size; ++i) {

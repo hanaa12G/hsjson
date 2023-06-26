@@ -123,73 +123,71 @@ private:
   long        m_index;
 };
 
+
+#define JSON_TYPES json_number, json_string, json_array, json_object
+
 struct json_object;
 struct json_array;
 struct json_string;
 struct json_number;
 
 template<typename T>
-concept JsonValueType = is_one_of_types_v<remove_cvref_t<T>, json_number, json_string, json_array, json_object>;
+concept JsonValueType = is_one_of_types_v<remove_cvref_t<T>, JSON_TYPES>;
 
-struct json_string : std::string {};
+struct json_string : public std::string {
+	using std::string::string;
+};
 
 struct json_number {
   long   integral;
   double fractional;
   int    exponental;
+  
+  template<typename T>
+  T get_as() const {
+  }
+  
+  int get_as_int() const;
+  long get_as_long() const;
+  float get_as_float() const;
+  double get_as_double() const;
 };
 
 
 
 struct json_value {
 public:
-  enum type_index {
-    inone,
-    ilong,
-    idouble,
-    istring,
-    iobject,
-    iarray
-  };
 
-  json_value() : m_type { type_index::inone }, m_value { nullptr } {}
+  json_value() : m_type_index { -1 }, m_value { nullptr } {}
 
   template<JsonValueType T>
-  json_value& operator=(T&&)  { 
-    if (type() != index_of<T>()) {
-    }
-
-    auto& value = *reinterpret_cast<T*>(m_value);
-    return *this;
-  }
-
-  type_index type() const {
-    return m_type;
+  json_value& operator=(T&& t)  { 
+	using TT = remove_cvref_t<T>;
+	int const N = index_of_v<TT, JSON_TYPES>;
+	
+	if (m_type_index >= 0) {
+		clear_();
+	}
+	
+	auto ptr = new TT(std::forward<T>(t));
+	m_type_index = N;
+	m_value = ptr;
+	return *this;
   }
 
   template<JsonValueType T>
   result_or<T, json_error> get_as() const {
-    if (type() != index_of<T>()) {
+    if (m_type_index != index_of_v<T, JSON_TYPES>) {
       return { json_error::mismatch_type };
     }
 
     return { *reinterpret_cast<T*>(m_value) };
   }
 
-
-
-  template<JsonValueType T>
-  static type_index index_of () {
-    if constexpr (is_same_type_v<T, long>) return type_index::ilong;
-    else if constexpr (is_same_type_v<T, double>) return type_index::idouble;
-    else if constexpr (is_same_type_v<T, json_string>) return type_index::istring;
-    else if constexpr (is_same_type_v<T, json_object>) return type_index::iobject;
-    else if constexpr (is_same_type_v<T, json_array>) return type_index::iarray; 
-    else return type_index::inone;
-  }
 private:
+  void clear_();
 
-  type_index m_type;
+  int m_type_index;
   void* m_value;
 };
 
@@ -200,6 +198,10 @@ struct json_array {
 
 
 struct json_object {
+	
+  json_object() {
+	assert(true);
+  }
 
   template<JsonValueType T>
   result_or<T, json_error> get_attribute_as(json_string const& name) const noexcept {
@@ -214,9 +216,6 @@ struct json_object {
     }
 
     json_value const& val = m_values[i];
-    if (val.type() != json_value::index_of<T>()) {
-      return { json_error::mismatch_type };
-    }
 
     return val.get_as<T>();
 
@@ -224,11 +223,46 @@ struct json_object {
 
 
   json_value& operator[] (json_string const key) {
+	uint64_t i = 0;
+	for (; i < m_keys.size(); ++i) {
+		if (key == m_keys[i]) {
+			break;
+		}
+	}
+	if (i == m_keys.size()) {
+		m_keys.push_back (std::move(key));
+		m_values.push_back ({ });
+	}
+	return m_values[i];
   }
 
   vector<json_string> m_keys;
   vector<json_value>  m_values;
 };
+
+void json_value::clear_() {
+#define CASE(n) case n: \
+{ \
+	using type = nth_type_t<n, JSON_TYPES>; \
+	auto ptr = reinterpret_cast<type*>(m_value); \
+	delete ptr; \
+} break; \
+
+	switch (m_type_index) {
+		CASE(0);
+		CASE(1);
+		CASE(2);
+		CASE(3);
+		
+		case -1:
+			break;
+		default:
+			assert(false);
+	}
+	m_type_index = -1;
+	m_value = nullptr;
+#undef CASE
+  }
 
 
 
@@ -482,5 +516,11 @@ int main() {
   auto name_res = person.get_attribute_as<json_string>({ "name" });
   assert (name_res);
   name = name_res.get_value();
-
+  assert (name == "John Doe");
+  auto age_res = person.get_attribute_as<json_number>("age");
+  assert(age_res);
+  int age = age_res.get_as<int>();
+  assert(age == 14);
+  auto agef = age_res.get_as<float>();
+  assert(agef == 14.0f);
 }
