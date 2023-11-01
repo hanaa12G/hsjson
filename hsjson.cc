@@ -8,19 +8,19 @@ namespace hs::json
     {
     }
 
-    inline double
+    double
     hs::json::json_number::get_value() const noexcept
     {
         return m_value;
     }
 
-    inline double &
+    double &
     hs::json::json_number::value() noexcept
     {
         return m_value;
     }
 
-    inline void
+    void
     hs::json::json_number::set_value(double value) noexcept
     {
         m_value = value;
@@ -31,19 +31,19 @@ namespace hs::json
     {
     }
 
-    inline bool
+    bool
     hs::json::json_boolean::get_value() const noexcept
     {
         return m_value;
     }
 
-    inline bool &
+    bool &
     hs::json::json_boolean::value() noexcept
     {
         return m_value;
     }
 
-    inline void
+    void
     hs::json::json_boolean::set_value(bool value) noexcept
     {
         m_value = value;
